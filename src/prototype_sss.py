@@ -3,6 +3,7 @@ from gensim.models.ldamodel import  LdaModel
 # from gensim.models.ldamulticore import LdaMulticore
 import gensim.corpora as corpora
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelBinarizer
 import csv
 import numpy as np
 import spacy
@@ -50,9 +51,10 @@ for pub in publisher_data.keys():
 # print(publisher_data.keys())
 print(set(mbfc_labels.values()))
 print(len(set(mbfc_labels.values())))
-
+onehot_enc = LabelBinarizer().fit(list(mbfc_labels.values()))
 
 documents = []
+labels = []
 
 dates = [f for f in ARTICLES_DIR.iterdir() if f.is_dir()]
 # use 10 days as a prototype
@@ -61,7 +63,7 @@ dates = [f for f in ARTICLES_DIR.iterdir() if f.is_dir()]
 testing_text_raw = []
 
 with nlp.disable_pipes("ner"):
-    for date in dates[:50]:
+    for date in dates[:2]: # parsing documents can take a while.
         smalltest_dir = (ARTICLES_DIR / date).resolve()
 
         publishers = [f for f in smalltest_dir.iterdir() if f.is_dir()]
@@ -93,6 +95,7 @@ with nlp.disable_pipes("ner"):
                                 and not token.pos_ == 'NUM']
                     # print(lem_text)
                     documents.append(lem_text)
+                    labels.append(mbfc_labels[this_publisher])
 
 print('number of documents: ', len(documents))
 
@@ -100,7 +103,11 @@ id2word = corpora.Dictionary(documents)
 
 corpus = [id2word.doc2bow(doc) for doc in documents]
 
-# just plugging stuff into LDA and printing results. not doing anything interesting yet.
+onehot_labels = onehot_enc.transform(labels)
+
+print("starting LDA model")
+# plug into LDA model.
+# this can take a while with larger number of documents
 lda = LdaModel(num_topics=20,
                    id2word=id2word,
                    corpus=corpus,
@@ -110,7 +117,32 @@ print("topics:")
 for topic in lda.show_topics(num_topics=20, num_words=20):#print_topics():
     print(topic)
 
-print("getting topics for testing document")
-topic_prediction = lda.get_document_topics(bow=corpus[0])
-print(testing_text_raw)
-print(topic_prediction)
+#print("getting topics for testing document")
+#topic_prediction = lda.get_document_topics(bow=corpus[0])
+
+#print(testing_text_raw)
+#print(topic_prediction)
+
+print("")
+print("starting setup to train a classifier based on LDA topics for each document")
+
+topic_vecs = []
+
+# get topic matches and put them into vectors
+for i in range(len(documents)):
+    top_topics = lda.get_document_topics(corpus[i], minimum_probability=0.0)
+    topic_vec = [top_topics[i][1] for i in range(20)]
+    topic_vecs.append(topic_vec)
+
+
+from sklearn.linear_model import SGDClassifier, LogisticRegression
+from sklearn.metrics import f1_score
+
+# train basic logistic regression
+sgd_model = LogisticRegression(class_weight='balanced').fit(topic_vecs, labels)
+
+pred_labels = sgd_model.predict(topic_vecs)
+
+# get accuracy from the training data, just to look at whether this even seems feasible...
+# 0.3 f1 score on the training, using 12123 documents. not great results for now.
+print("accuracy on training data: ", f1_score(labels, pred_labels, average='weighted'))
