@@ -13,11 +13,57 @@ import json
 #import sqlite3
 from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.metrics import f1_score
+import pdb
+import os
+import json
 
 # Constants
 STOPWORDS = {
     'say', 'not', 'like', 'go', "be", "have", "s"
 }
+
+
+def preprocess_data(article_directory, dest_root_dir):
+    """
+
+    :param article_directory:
+    :return:
+    """
+    date_to_article = {}
+    dir = os.fsencode(article_directory)
+
+    for file in os.listdir(dir):
+        filename = os.fsdecode(file)
+        publisher = filename.split('.')[0]
+        with open(os.path.join(article_directory, filename)) as f:
+            all_articles = json.load(f)
+            for article in all_articles:
+                date = article['date']
+                article_id = article['title'][:200] if len(article['title']) > 200 else article['title']
+                article_id = article_id.replace('/', '_')
+                date_to_article[date] = article
+
+                # Check if dirs exist
+                date_dir = os.path.join(dest_root_dir, date)
+                publisher_dir = os.path.join(dest_root_dir, date, publisher)
+                if not os.path.exists(date_dir):
+                    os.makedirs(date_dir, mode=0o777)
+
+                if not os.path.exists(publisher_dir):
+                    os.makedirs(publisher_dir, mode=0o777)
+
+
+                #pdb.set_trace()
+                # Write article content to text file
+                try:
+                    article_file = os.path.join(publisher_dir, article_id+'.txt')
+                    if not os.path.isfile(article_file):
+                        with open(article_file, 'w') as out:
+                            out.write(article['content'])
+                except Exception as e:
+                    print("ERROR:", e)
+
+    return
 
 
 def predict_bias(model, topic_vecs, labels):
@@ -33,6 +79,15 @@ def predict_bias(model, topic_vecs, labels):
 
     # get accuracy from the training data, just to look at whether this even seems feasible...
     # 0.3 f1 score on the training, using 12123 documents. not great results for now.
+    print("Topic Vectors:")
+    print(topic_vecs)
+    print("Compare truth to prediction (truth, prediction)")
+    for i in range(0, len(labels)):
+        print("({}, {})".format(labels[i], pred_labels[i]))
+    #print("Truth Labels:")
+    #print(labels)
+    #print("Predicted Labels:")
+    #print(pred_labels)
     print("accuracy on training data: ",
           f1_score(labels, pred_labels, average='weighted'))
 
@@ -162,7 +217,7 @@ def load_labels(path):
     # publisher data keys should match the folder names for each publisher for a given day
     publisher_data = dict()
     #with (path / 'labels.csv').resolve().open() as f:
-    with open(path + '\labels.csv') as f:
+    with open(os.path.join(path, 'labels.csv')) as f:
         labelreader = csv.reader(f, delimiter=',')
         firstrow = True
         for row in labelreader:
@@ -236,9 +291,12 @@ def main():
 
     inputs = parser.parse_args()
 
+    #preprocess_data(inputs.article_dir, os.path.join(inputs.data_dir, 'articles', 'articles'))
+
     # load our label data, form of a tuple of (lables, publisher_data)
     documents, labels, onehot_enc = load_data(inputs.data_dir, inputs.article_dir)
 
+    #pdb.set_trace()
     # Train our model
     model, topic_vector = train_model(documents, onehot_enc, labels)
 
