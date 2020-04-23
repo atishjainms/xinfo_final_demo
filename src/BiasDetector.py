@@ -13,6 +13,7 @@ import json
 #import sqlite3
 from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.metrics import f1_score
+import pickle
 import pdb
 import os
 import json
@@ -82,8 +83,8 @@ def predict_bias(model, topic_vecs, labels):
     print("Topic Vectors:")
     print(topic_vecs)
     print("Compare truth to prediction (truth, prediction)")
-    for i in range(0, len(labels)):
-        print("({}, {})".format(labels[i], pred_labels[i]))
+    # for i in range(0, len(labels)):
+    #     print("({}, {})".format(labels[i], pred_labels[i]))
     #print("Truth Labels:")
     #print(labels)
     #print("Predicted Labels:")
@@ -126,6 +127,7 @@ def train_model(documents, onehot_enc, labels):
     for topic in lda.show_topics(num_topics=num_topics,
                                  num_words=20):  # print_topics():
         print(topic)
+    lda.save("trained_ldamodel.model")
 
     # print("getting topics for testing document")
     # topic_prediction = lda.get_document_topics(bow=corpus[0])
@@ -150,6 +152,8 @@ def train_model(documents, onehot_enc, labels):
 
     # train basic logistic regression
     model = LogisticRegression(class_weight='balanced').fit(topic_vecs, labels)
+    with open('trained_logreg_model.pkl', 'wb') as f:
+        pickle.dump(model, f)
 
     return model, topic_vecs
 
@@ -165,6 +169,11 @@ def load_articles(articles_dir, mbfc_labels):
     labels = []
     # store raw text / processed text to use later to look at result example
     testing_text_raw = []
+    PROJ_ROOT = Path(__file__).parent.parent
+    print(articles_dir)
+    articles_dir = (PROJ_ROOT / articles_dir).resolve()
+    print("--")
+    print(articles_dir)
 
     # load our spacy model
     nlp = spacy.load('en_core_web_md')
@@ -173,7 +182,7 @@ def load_articles(articles_dir, mbfc_labels):
     dates = [f for f in Path(articles_dir).iterdir() if f.is_dir()]
 
     with nlp.disable_pipes("ner"):
-        for date in dates[:4]:  # parsing documents can take a while.
+        for date in dates[:30]:  # parsing documents can take a while.
             smalltest_dir = (articles_dir / date).resolve()
 
             publishers = [f for f in smalltest_dir.iterdir() if f.is_dir()]
