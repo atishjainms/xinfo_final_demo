@@ -19,7 +19,9 @@ import json
 
 # Constants
 STOPWORDS = {
-    'say', 'not', 'like', 'go', "be", "have", "s"
+    'say', 'not', 'like', 'go', "be", "have", "s", #original
+    "and", "when", "where", "who", "let", "look", "time", "use", "him", "her",
+    "she", "he"
 }
 
 
@@ -52,8 +54,6 @@ def preprocess_data(article_directory, dest_root_dir):
                 if not os.path.exists(publisher_dir):
                     os.makedirs(publisher_dir, mode=0o777)
 
-
-                #pdb.set_trace()
                 # Write article content to text file
                 try:
                     article_file = os.path.join(publisher_dir, article_id+'.txt')
@@ -102,25 +102,27 @@ def train_model(documents, onehot_enc, labels):
     :param labels:
     :return:
     """
+    # Configuration variables
+    num_topics = 100
 
+    # Start
     print('number of documents: ', len(documents))
 
     id2word = corpora.Dictionary(documents)
 
     corpus = [id2word.doc2bow(doc) for doc in documents]
-
     onehot_labels = onehot_enc.transform(labels)
 
     print("starting LDA model")
     # plug into LDA model.
     # this can take a while with larger number of documents
-    lda = LdaModel(num_topics=20,
+    lda = LdaModel(num_topics=num_topics,
                    id2word=id2word,
                    corpus=corpus,
                    passes=50,
                    eval_every=1)
     print("topics:")
-    for topic in lda.show_topics(num_topics=20,
+    for topic in lda.show_topics(num_topics=num_topics,
                                  num_words=20):  # print_topics():
         print(topic)
 
@@ -139,8 +141,10 @@ def train_model(documents, onehot_enc, labels):
     # get topic matches and put them into vectors
     for i in range(len(documents)):
         top_topics = lda.get_document_topics(corpus[i],
-                                             minimum_probability=0.0)
-        topic_vec = [top_topics[i][1] for i in range(20)]
+                                             minimum_probability=0)
+
+        #print(len(top_topics))
+        topic_vec = [top_topics[i][1] for i in range(num_topics)]
         topic_vecs.append(topic_vec)
 
     # train basic logistic regression
@@ -168,7 +172,7 @@ def load_articles(articles_dir, mbfc_labels):
     dates = [f for f in Path(articles_dir).iterdir() if f.is_dir()]
 
     with nlp.disable_pipes("ner"):
-        for date in dates[:2]:  # parsing documents can take a while.
+        for date in dates[:4]:  # parsing documents can take a while.
             smalltest_dir = (articles_dir / date).resolve()
 
             publishers = [f for f in smalltest_dir.iterdir() if f.is_dir()]
@@ -267,10 +271,10 @@ def load_data(data_dir, article_dir):
 def main():
     # Using the argument parser library to handle command line inputs
     # Note: this will also handle validating the input types
-    program_desc = ("This program, given a directory full of images, will "
-                    "compare them to each other, using two methods, and print "
-                    "the two most similar and the two least similar images "
-                    "for each method.")
+    program_desc = ("This program will train an NLP model that can classify "
+                    "a document as containing some bias and then identify "
+                    "corresponding terms that indicate said bias in "
+                    "the article.")
     parser = argparse.ArgumentParser(description=program_desc)
 
     parser.add_argument("data_dir",
@@ -281,27 +285,37 @@ def main():
                         type=str,
                         help=("Directory the articles live in."))
 
-    #parser.add_argument("comment_symbol",
-    #                    type=str,
-    #                    help=("Comment symbol used in input file."))
-
-    #parser.add_argument("mode",
-    #                    type=str,
-    #                    help=("Comment symbol used in input file."))
+    parser.add_argument("-p",
+                        action='store_true',
+                        help=("Preprocess the dataverse files into a "
+                              "format this program can use. Warning! This "
+                              "will take up ~4GB of space on this disk."))
 
     inputs = parser.parse_args()
 
-    #preprocess_data(inputs.article_dir, os.path.join(inputs.data_dir, 'articles', 'articles'))
+    if inputs.p:
+        preprocess_data(inputs.article_dir,
+                        os.path.join(inputs.data_dir, 'articles', 'articles'))
 
-    # load our label data, form of a tuple of (lables, publisher_data)
+    ###########################################################################
+    # This problem can be broken into the following steps:
+    #     1) Load the desired documents and labels into memory
+    #     2) Train our model to be able to classify a given document's
+    #        biases
+    #     3) Train a classifier to be able to extract the associated terms,
+    #        phrases and topics for the biases present in the document
+    ###########################################################################
+
+    # Step 1) load our label data, form of a tuple of (lables, publisher_data)
     documents, labels, onehot_enc = load_data(inputs.data_dir, inputs.article_dir)
 
-    #pdb.set_trace()
-    # Train our model
+    # Step 2) Train our model
     model, topic_vector = train_model(documents, onehot_enc, labels)
 
-    # Predict
+    # Step 2 TEST STEP, confirm that our prediction is good
     predict_bias(model, topic_vector, labels)
+
+    # Step 3) Extract the words
 
 
     # Do the tests
