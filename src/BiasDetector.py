@@ -102,8 +102,9 @@ def train_model(documents, onehot_enc, labels):
     :param labels:
     :return:
     """
-    # Configuration variables
-    num_topics = 100
+    # Configuration variables, how many topics will we attempt to extract from
+    # our documents.
+    num_topics = 400
 
     # Start
     print('number of documents: ', len(documents))
