@@ -106,9 +106,26 @@ def main():
     Seagal was also granted Serbian citizenship in 2016, following several visits to the Balkan country.
     """
 
-    get_json_prediction_output(nlp=nlp, lda_model=lda, classifier_model=classifier, input_raw_text=DUMMY_TEXT)
+    pred_output_res = get_json_prediction_output(nlp=nlp, lda_model=lda, classifier_model=classifier, input_raw_text=DUMMY_TEXT)
 
-
+    ### example usage below
+    print("----------")
+    print(DUMMY_TEXT)
+    print("overall prediction: {}".format(pred_output_res['pred_label']))
+    print("key topics relevant to input text: ---")
+    topic_ids = []
+    for terms in pred_output_res['relevant_topic_terms']:
+        print(terms)
+        topic_ids.append(terms[0])
+    print("---")
+    print("words matching topics in input text: ---")
+    for id in topic_ids:
+        relevant_words = []
+        for word_topic in pred_output_res['per_word_topics']:
+            if id in word_topic[1]:
+                relevant_words.append(word_topic[0])
+        print(id, ':', relevant_words)
+    print("---")
 
 
 if __name__ == "__main__":
