@@ -1,0 +1,63 @@
+
+<style>
+table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+th, td {
+	overflow: hidden;
+  text-align: left;
+  padding: 8px;
+  position: relative;
+}
+
+tr:nth-child(even) {background-color: #f2f2f2;}
+/*table {
+  border: 1px solid black;
+  table-layout: fixed;
+  width: 200px;
+}
+
+th,
+td {
+  border: 1px solid black;
+  width: 100px;
+  overflow: hidden;
+}*/
+</style>
+Enter Text you want to search on :<input type="text" [(ngModel)]="searchText">
+
+<button (click)="query()">search</button>
+<p *ngIf="displayvaluesflag"> Here are
+  the relevant articles</p>
+<table *ngIf="displayvaluesflag">
+	<th>Bias</th>
+	<th>Description</th>
+	<th>Source </th>
+  <th>Domain</th>
+
+<tbody>
+
+  <tr *ngFor="let d of displayvalues">
+  	<!-- <span *ngFor="let d of disp"> -->
+  	 <td>{{d.bias}}</td>
+     <td>{{d.description}}</td>
+     <td>{{d.url}}</td>
+     <td>{{d.source_domain}}</td>
+     <td><a  style="color:blue;cursor:pointer" (click)="viewText(d)">See corresponding text</a> </td>
+
+
+  </tr>
+</tbody>
+
+</table>
+
+<p *ngIf="showTextFlag">{{showText}} </p>
+<button routerLink="/" style="cursor: pointer;">Home Page</button>
+<br>
+<br>
